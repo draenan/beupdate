@@ -1,0 +1,108 @@
+#!/bin/sh
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+
+progname=${0##*/}
+
+usage() {
+    echo "Usage: $progname -s bename"
+    echo "Usage: $progname [-r release] [-F] bename"
+    exit
+}
+
+exerr() {
+    echo "$*" >&2
+    exit 1
+}
+
+[ $(uname -r | cut -d '.' -f1) -lt 8 ] && exerr "ERROR: FreeBSD 8.0 or later required."
+
+/usr/bin/which -s beadm
+[ "$?" -ne "0" ] && exerr "ERROR: beadm is not installed."
+
+#[ $(id -u) -ne "0" ] && exerr "ERROR: Root privileges required."
+
+while getopts :sFr: opt; do
+    case $opt in
+        s)   USESRC=1;;
+        F)   FORCE=1;;
+        r)   RELEASE=$OPTARG;;
+        '?') usage;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+BENAME=$1
+[ -z $BENAME ] && usage
+[ "$USESRC" -a "$RELEASE" ] && usage
+
+BEFOUND=
+BE=
+ACTIVE=
+
+IFS=$'\n'
+for line in $(beadm list -H); do
+    BE=$(echo $line | awk '{print $1}')
+    ACTIVE=$(echo $line | awk '{print $2}')
+    if [ "x$BE" == "x$BENAME" ]; then
+        echo $ACTIVE | grep -q N && exerr "ERROR: \"$BENAME\" is the active boot environment."
+        BEFOUND=1
+        break
+    fi
+done
+IFS=$OLDIFS
+
+[ -z $BEFOUND ] && exerr "ERROR: The boot environment \"$BENAME\" does not exist."
+
+beadm mount $BENAME >/dev/null 2>&1
+[ "$?" -ne "0" ] && exerr "ERROR: Could not mount boot environment."
+MNTPT=$(mount | grep BE-$BENAME | awk '{print $3}')
+
+if [ $usersrc ]; then
+    mount -t nullfs -o ro /usr/src ${MNTPT}/usr/src
+    mount -t nullfs -o ro /usr/obj ${MNTPT}/usr/obj
+    echo '#!/bin/sh
+mount -t devfs devfs /dev
+cd /usr/src
+make -s installkernel && make -s installworld && /usr/sbin/mergemaster -U
+umount /dev' > ${MNTPT}/tmp/beupdate-src.sh
+    chmod +x ${MNTPT}/tmp/beupdate-src.sh
+    chroot ${MNTPT} /tmp/beupdate-src.sh
+    rm ${MNTPT}/tmp/beupdate-src.sh
+    umount ${MNTPT}/usr/obj
+    umount ${MNTPT}/usr/src
+    echo "Please activate \"$BENAME\" and reboot."
+else
+    if [ -z $FORCE ]; then
+        if [ $(uname -r | cut -d'-' -f2) != "RELEASE" ]; then
+            echo "WARNING: The currently running kernel is not a RELEASE kernel."
+            echo "This suggests that \"$BENAME\" may also not contain a RELEASE kernel."
+            echo -n "freebsd-update may fail. Do you wish to proceed? (y/[n]): "
+            read choice
+            case $choice in
+                y|Y) ;;
+                n|N) beadm umount $BENAME >/dev/null; exit;;
+                *)   beadm umount $BENAME >/dev/null; exit;;
+            esac
+        fi
+    fi
+    chroot ${MNTPT} mount -t devfs devfs /dev
+    if [ $release ]; then
+        chroot ${MNTPT} /usr/sbin/freebsd-update upgrade -r $RELEASE
+    else
+        chroot ${MNTPT} /usr/sbin/freebsd-update fetch
+    fi
+    chroot ${MNTPT} /usr/sbin/freebsd-update install > /dev/null
+    chroot ${MNTPT} umount /dev
+    echo "Please activate \"$BENAME\" and reboot."
+    if [ $release ]; then
+        echo
+        echo "After rebooting, run freebsd-update again to install the new userland."
+        echo "After that, reboot again."
+    fi
+fi
+
+beadm umount $BENAME >/dev/null
+exit
+
