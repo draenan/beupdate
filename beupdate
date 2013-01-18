@@ -5,8 +5,9 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 progname=${0##*/}
 
 usage() {
-    echo "Usage: $progname -s bename"
-    echo "Usage: $progname [-r release] [-F] bename"
+    echo "Usage:"
+    echo "    $progname -s bename"
+    echo "    $progname [-r release] [-F] bename"
     exit
 }
 
@@ -43,8 +44,8 @@ ACTIVE=
 
 IFS=$'\n'
 for line in $(beadm list -H); do
-    BE=$(echo $line | awk '{print $1}')
-    ACTIVE=$(echo $line | awk '{print $2}')
+    BE=$(echo $line | cut -f1)
+    ACTIVE=$(echo $line | cut -f2)
     if [ "x$BE" == "x$BENAME" ]; then
         echo $ACTIVE | grep -q N && exerr "ERROR: \"$BENAME\" is the active boot environment."
         BEFOUND=1
@@ -55,9 +56,9 @@ IFS=$OLDIFS
 
 [ -z $BEFOUND ] && exerr "ERROR: The boot environment \"$BENAME\" does not exist."
 
-beadm mount $BENAME >/dev/null 2>&1
+MNTOUT=$(beadm mount $BENAME)
 [ "$?" -ne "0" ] && exerr "ERROR: Could not mount boot environment."
-MNTPT=$(mount | grep BE-$BENAME | awk '{print $3}')
+MNTPT=$(echo "$MNTOUT" | cut -d"'" -f2)
 
 if [ $usersrc ]; then
     mount -t nullfs -o ro /usr/src ${MNTPT}/usr/src
@@ -88,7 +89,7 @@ else
         fi
     fi
     chroot ${MNTPT} mount -t devfs devfs /dev
-    if [ $release ]; then
+    if [ $RELEASE ]; then
         chroot ${MNTPT} /usr/sbin/freebsd-update upgrade -r $RELEASE
     else
         chroot ${MNTPT} /usr/sbin/freebsd-update fetch
@@ -96,7 +97,7 @@ else
     chroot ${MNTPT} /usr/sbin/freebsd-update install > /dev/null
     chroot ${MNTPT} umount /dev
     echo "Please activate \"$BENAME\" and reboot."
-    if [ $release ]; then
+    if [ $RELEASE ]; then
         echo
         echo "After rebooting, run freebsd-update again to install the new userland."
         echo "After that, reboot again."
