@@ -6,7 +6,8 @@ progname=${0##*/}
 
 usage() {
     echo "Usage:"
-    echo "    $progname -s bename"
+    echo "    $progname -s [-m] bename"
+    echo "    $progname -S bename"
     echo "    $progname [-r release] [-F] bename"
     exit
 }
@@ -23,9 +24,11 @@ exerr() {
 
 #[ $(id -u) -ne "0" ] && exerr "ERROR: Root privileges required."
 
-while getopts :sFr: opt; do
+while getopts :smSFr: opt; do
     case $opt in
-        s)   USESRC=1;;
+        s)   USESRC=1; INBE=1;;
+        m)   PREMERGE=1;;
+        S)   USESRC=1;;
         F)   FORCE=1;;
         r)   RELEASE=$OPTARG;;
         '?') usage;;
@@ -37,6 +40,7 @@ shift $((OPTIND - 1))
 BENAME=$1
 [ -z $BENAME ] && usage
 [ "$USESRC" -a "$RELEASE" ] && usage
+[ "$USESRC" -a "$PREMERGE" ] && [ -z $INBE ] && usage
 
 IFS=$'\n'
 for line in $(beadm list -H); do
@@ -56,20 +60,27 @@ MNTOUT=$(beadm mount $BENAME)
 [ "$?" -ne "0" ] && exerr "ERROR: Could not mount boot environment."
 MNTPT=$(echo "$MNTOUT" | cut -d"'" -f2)
 
-if [ $usersrc ]; then
-    mount -t nullfs -o ro /usr/src ${MNTPT}/usr/src
-    mount -t nullfs -o ro /usr/obj ${MNTPT}/usr/obj
-    echo '#!/bin/sh
+if [ $USESRC ]; then
+    if [ $INBE ]; then
+        MKOPTS="make -s buildworld && make -s buildkernel &&"
+    else
+        mount -t nullfs -o ro /usr/src ${MNTPT}/usr/src
+        mount -t nullfs -o ro /usr/obj ${MNTPT}/usr/obj
+    fi
+    echo "#!/bin/sh
 mount -t devfs devfs /dev
 cd /usr/src
-make -s installkernel && make -s installworld && /usr/sbin/mergemaster -U
-umount /dev' > ${MNTPT}/tmp/beupdate-src.sh
+$MKOPTS make -s installkernel && make -s installworld && /usr/sbin/mergemaster -U
+umount /dev" > ${MNTPT}/tmp/beupdate-src.sh
     chmod +x ${MNTPT}/tmp/beupdate-src.sh
+    [ $PREMERGE ] && chroot ${MNTPT} /usr/sbin/mergemaster -p
     chroot ${MNTPT} /tmp/beupdate-src.sh
     rm ${MNTPT}/tmp/beupdate-src.sh
-    umount ${MNTPT}/usr/obj
-    umount ${MNTPT}/usr/src
-    echo "Please activate \"$BENAME\" and reboot."
+    if [ "$INBE" ]; then
+        umount ${MNTPT}/usr/obj
+        umount ${MNTPT}/usr/src
+    fi
+    echo "If there were no errors, please activate \"$BENAME\" and reboot."
 else
     if [ -z $FORCE ]; then
         if [ $(uname -r | cut -d'-' -f2) != "RELEASE" ]; then
@@ -92,7 +103,7 @@ else
     fi
     chroot ${MNTPT} /usr/sbin/freebsd-update install > /dev/null
     chroot ${MNTPT} umount /dev
-    echo "Please activate \"$BENAME\" and reboot."
+    echo "If there were no errors, please activate \"$BENAME\" and reboot."
     if [ $RELEASE ]; then
         echo
         echo "After rebooting, run freebsd-update again to install the new userland."
