@@ -38,10 +38,6 @@ BENAME=$1
 [ -z $BENAME ] && usage
 [ "$USESRC" -a "$RELEASE" ] && usage
 
-BEFOUND=
-BE=
-ACTIVE=
-
 IFS=$'\n'
 for line in $(beadm list -H); do
     BE=$(echo $line | cut -f1)
