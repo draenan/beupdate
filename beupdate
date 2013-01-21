@@ -76,7 +76,7 @@ umount /dev" > ${MNTPT}/tmp/beupdate-src.sh
     [ $PREMERGE ] && chroot ${MNTPT} /usr/sbin/mergemaster -p
     chroot ${MNTPT} /tmp/beupdate-src.sh
     rm ${MNTPT}/tmp/beupdate-src.sh
-    if [ "$INBE" ]; then
+    if [ -z $INBE ]; then
         umount ${MNTPT}/usr/obj
         umount ${MNTPT}/usr/src
     fi
