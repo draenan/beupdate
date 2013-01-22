@@ -22,7 +22,7 @@ exerr() {
 /usr/bin/which -s beadm
 [ "$?" -ne "0" ] && exerr "ERROR: beadm is not installed."
 
-#[ $(id -u) -ne "0" ] && exerr "ERROR: Root privileges required."
+[ $(id -u) -ne "0" ] && exerr "ERROR: Root privileges required."
 
 while getopts :smSFr: opt; do
     case $opt in
