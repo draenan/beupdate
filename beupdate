@@ -6,9 +6,10 @@ progname=${0##*/}
 
 usage() {
     echo "Usage:"
+    echo "    $progname bename"
+    echo "    $progname [-r release] [-F] bename"
     echo "    $progname -s [-m] bename"
     echo "    $progname -S bename"
-    echo "    $progname [-r release] [-F] bename"
     exit
 }
 
