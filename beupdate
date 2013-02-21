@@ -43,6 +43,7 @@ BENAME=$1
 [ "$USESRC" -a "$RELEASE" ] && usage
 [ "$USESRC" -a "$PREMERGE" ] && [ -z $INBE ] && usage
 
+OLDIFS=$IFS
 IFS=$'\n'
 for line in $(beadm list -H); do
     BE=$(echo $line | cut -f1)
