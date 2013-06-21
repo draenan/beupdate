@@ -72,12 +72,12 @@ if [ $USESRC ]; then
     echo "#!/bin/sh
 mount -t devfs devfs /dev
 cd /usr/src
-$MKOPTS make -s installkernel && make -s installworld && /usr/sbin/mergemaster -U
-umount /dev" > ${MNTPT}/tmp/beupdate-src.sh
+$MKOPTS make -s installkernel && make -s installworld && /usr/sbin/mergemaster -U" > ${MNTPT}/tmp/beupdate-src.sh
     chmod +x ${MNTPT}/tmp/beupdate-src.sh
     [ $PREMERGE ] && chroot ${MNTPT} /usr/sbin/mergemaster -p
     chroot ${MNTPT} /tmp/beupdate-src.sh
     rm ${MNTPT}/tmp/beupdate-src.sh
+    umount ${MNTPT}/dev
     if [ -z $INBE ]; then
         umount ${MNTPT}/usr/obj
         umount ${MNTPT}/usr/src
