@@ -7,7 +7,7 @@ progname=${0##*/}
 usage() {
     echo "Usage:"
     echo "    $progname bename"
-    echo "    $progname [-r release] [-F] bename"
+    echo "    $progname [-r release] bename"
     echo "    $progname -s [-m] bename"
     echo "    $progname -S bename"
     exit
@@ -25,12 +25,11 @@ exerr() {
 
 [ $(id -u) -ne "0" ] && exerr "ERROR: Root privileges required."
 
-while getopts :smSFr: opt; do
+while getopts :smSr: opt; do
     case $opt in
         s)   USESRC=1; INBE=1;;
         m)   PREMERGE=1;;
         S)   USESRC=1;;
-        F)   FORCE=1;;
         r)   RELEASE=$OPTARG;;
         '?') usage;;
     esac
@@ -84,19 +83,6 @@ $MKOPTS make -s installkernel && make -s installworld && /usr/sbin/mergemaster -
     fi
     echo "If there were no errors, please activate \"$BENAME\" and reboot."
 else
-    if [ -z $FORCE ]; then
-        if [ $(uname -r | cut -d'-' -f2) != "RELEASE" ]; then
-            echo "WARNING: The currently running kernel is not a RELEASE kernel."
-            echo "This suggests that \"$BENAME\" may also not contain a RELEASE kernel."
-            echo -n "freebsd-update may fail. Do you wish to proceed? (y/[n]): "
-            read choice
-            case $choice in
-                y|Y) ;;
-                n|N) beadm umount $BENAME >/dev/null; exit;;
-                *)   beadm umount $BENAME >/dev/null; exit;;
-            esac
-        fi
-    fi
     chroot ${MNTPT} mount -t devfs devfs /dev
     if [ $RELEASE ]; then
         chroot ${MNTPT} /usr/sbin/freebsd-update upgrade -r $RELEASE
