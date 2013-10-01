@@ -89,6 +89,7 @@ else
     else
         chroot ${MNTPT} /usr/sbin/freebsd-update fetch
     fi
+    echo "Installing updates ..."
     chroot ${MNTPT} /usr/sbin/freebsd-update install > /dev/null
     umount ${MNTPT}/dev
     echo "If there were no errors, please activate \"$BENAME\" and reboot."
