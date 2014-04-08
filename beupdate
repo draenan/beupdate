@@ -47,7 +47,7 @@ IFS=$'\n'
 for line in $(beadm list -H); do
     BE=$(echo $line | cut -f1)
     ACTIVE=$(echo $line | cut -f2)
-    if [ "x$BE" == "x$BENAME" ]; then
+    if [ "$BE" == "$BENAME" ]; then
         echo $ACTIVE | grep -q N && exerr "ERROR: \"$BENAME\" is the active boot environment."
         BEFOUND=1
         break
